@@ -1,1 +1,134 @@
-<!doctype html><title>stub</title>
+
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AUSARA PRODUCTION PLANNER</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+    <!-- ✅ Added: Firebase SDKs + our config/logic (must be BEFORE your main script runs) -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
+    <script src="scripts/firebase.js"></script>
+
+    <style>
+        body { font-family: 'Sarabun', sans-serif; background-color: #f3f4f6; }
+        .tab-button.active, .view-button.active { 
+            border-color: #6b21a8; /* purple-800 */
+            color: #6b21a8; 
+            background-color: #f3e8ff; /* purple-100 */
+        }
+        .table-container { overflow-x: auto; }
+        .scheduler-grid { display: grid; }
+        .slot { min-height: 50px; cursor: pointer; transition: background-color 0.2s; }
+        .slot:hover { background-color: #d1fae5; }
+        .slot.assigned { background-color: #a7f3d0; font-weight: 500; }
+        .weekend-header { background-color: #fee2e2 !important; }
+        .holiday-header { background-color: #dbeafe !important; }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
+        .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 0.5rem; }
+        #loader { display: flex; position: fixed; inset: 0; background-color: rgba(255,255,255,0.8); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; gap: 1rem; }
+        .saved-indicator { opacity: 0; transition: opacity 0.5s ease-out; color: green; }
+        .saved-indicator.show { opacity: 1; }
+    </style>
+</head>
+<body class="p-4 md:p-8">
+
+    <div id="loader">
+        <svg class="animate-spin h-10 w-10 text-purple-800" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <p class="font-semibold text-purple-800">กำลังโหลดข้อมูล...</p>
+    </div>
+
+    <div id="app-container" class="max-w-full mx-auto bg-white rounded-2xl shadow-lg hidden">
+        <header class="p-6 border-b border-gray-200">
+            <h1 class="text-3xl font-bold text-gray-800">AUSARA PRODUCTION PLANNER</h1>
+        </header>
+
+        <div class="p-4 border-b border-gray-200">
+            <nav class="flex flex-wrap gap-2" id="app-tabs">
+                <button data-tab="overview" class="tab-button active text-sm md:text-base font-semibold px-4 py-2 rounded-lg border-b-4">ภาพรวม</button>
+                <button data-tab="products" class="tab-button text-sm md:text-base font-semibold px-4 py-2 rounded-lg border-b-4">สินค้า</button>
+                <button data-tab="projects" class="tab-button text-sm md:text-base font-semibold px-4 py-2 rounded-lg border-b-4">โปรเจค</button>
+                <button data-tab="employees" class="tab-button text-sm md:text-base font-semibold px-4 py-2 rounded-lg border-b-4">พนักงาน</button>
+                <button data-tab="scheduler" class="tab-button text-sm md:text-base font-semibold px-4 py-2 rounded-lg border-b-4">ตารางเวลา</button>
+            </nav>
+        </div>
+
+        <main class="p-6" id="main-content">
+            <!-- Content will be injected here -->
+        </main>
+    </div>
+
+    <!-- Modals will be injected here -->
+
+    <script>
+        // --- GLOBAL STATE ---
+        let projects = [], productTemplates = [], employees = [], schedule = {};
+        let isFirstRender = true;
+        const thaiMonths = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+        let selectedDate = new Date();
+        let schedulerView = 'monthly';
+        let currentModalData = {};
+        let saveTimeout;
+
+        // --- HOLIDAY DATA ---
+        const thaiHolidays = {
+            '1-1': "วันขึ้นปีใหม่", '4-6': "วันจักรี", '5-1': "วันแรงงานแห่งชาติ", '5-4': "วันฉัตรมงคล",
+            '6-3': "วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าฯ พระบรมราชินี", '7-28': "วันเฉลิมพระชนมพรรษาพระบาทสมเด็จพระวชิรเกล้าเจ้าอยู่หัว",
+            '8-12': "วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าสิริกิติ์ พระบรมราชินาถ พระบรมราชชนนีพันปีหลวง",
+            '10-13': "วันคล้ายวันสวรรคต ร.9", '10-23': "วันปิยมหาราช",
+            '12-5': "วันคล้ายวันพระบรมราชชพ ร.9", '12-10': "วันรัฐธรรมนูญ", '12-31': "วันสิ้นปี",
+            // 2025 variable holidays
+            '2025-2-12': "วันมาฆบูชา", '2025-4-13': "วันสงกรานต์", '2025-4-14': "วันสงกรานต์",
+            '2025-4-15': "วันสงกรานต์", '2025-5-12': "วันวิสาขบูชา", '2025-5-13': "วันพืชมงคล",
+            '2025-7-11': "วันอาสาฬหบูชา",
+        };
+
+        // ✅ Added helpers used by your renderers
+        function isHoliday(date) {
+            const k1 = `${date.getMonth()+1}-${date.getDate()}`;
+            const k2 = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
+            return Boolean(thaiHolidays[k1] || thaiHolidays[k2]);
+        }
+        function calculateRemainingWorkDays(deadlineStr) {
+            if (!deadlineStr) return null;
+            const today = new Date(); today.setHours(0,0,0,0);
+            const end = new Date(deadlineStr); end.setHours(0,0,0,0);
+            let dir = end >= today ? 1 : -1;
+            let d = new Date(Math.min(today, end));
+            let count = 0;
+            while (d.getTime() !== end.getTime()) {
+                d.setDate(d.getDate() + 1);
+                const weekend = d.getDay() === 0 || d.getDay() === 6;
+                if (!weekend && !isHoliday(d)) count++;
+            }
+            return dir * count;
+        }
+    </script>
+
+    <!-- Your original big script continues BELOW this line (unchanged) -->
+    <!-- The rest of your functions: renderOverview/renderProducts/... etc. -->
+
+    <script>
+      // --- GLOBAL INITIALIZATION (fixed) ---
+      document.addEventListener('DOMContentLoaded', async () => {
+        if (typeof firebase !== 'undefined') {
+          // Firebase path: init -> load -> render
+          initializeFirebase();
+          await loadData();
+          renderAll();
+        } else {
+          // Local-only path
+          console.log("Firebase not found, using Local Storage.");
+          loadData();
+          renderAll();
+        }
+      });
+    </script>
+</body>
+</html>
