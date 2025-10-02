@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="th">
 <head>
@@ -29,7 +28,7 @@
         .holiday-header { background-color: #dbeafe !important; }
         .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.4); }
         .modal-content { background-color: #fefefe; margin: 10% auto; padding: 20px; border: 1px solid #888; width: 80%; max-width: 600px; border-radius: 0.5rem; }
-        #loader { display: flex; position: fixed; inset: 0; background-color: rgba(255,255,255,0.8); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; gap: 1rem; }
+        #loader { display: flex; position: fixed; inset: 0; background-color: rgba(255,255,255,0.8); z-index: 2000; justify-content: center; align-items: center; flex-direction: column; gap: 1rem;}
         .saved-indicator { opacity: 0; transition: opacity 0.5s ease-out; color: green; }
         .saved-indicator.show { opacity: 1; }
     </style>
@@ -58,14 +57,14 @@
                 <button data-tab="scheduler" class="tab-button text-sm md:text-base font-semibold px-4 py-2 rounded-lg border-b-4">ตารางเวลา</button>
             </nav>
         </div>
-
+        
         <main class="p-6" id="main-content">
             <!-- Content will be injected here -->
         </main>
     </div>
-
+    
     <!-- Modals will be injected here -->
-
+    
     <script>
         // --- GLOBAL STATE ---
         let projects = [], productTemplates = [], employees = [], schedule = {};
@@ -80,7 +79,7 @@
         const thaiHolidays = {
             '1-1': "วันขึ้นปีใหม่", '4-6': "วันจักรี", '5-1': "วันแรงงานแห่งชาติ", '5-4': "วันฉัตรมงคล",
             '6-3': "วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าฯ พระบรมราชินี", '7-28': "วันเฉลิมพระชนมพรรษาพระบาทสมเด็จพระวชิรเกล้าเจ้าอยู่หัว",
-            '8-12': "วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าสิริกิติ์ พระบรมราชินาถ พระบรมราชชนนีพันปีหลวง",
+            '8-12': "วันเฉลิมพระชนมพรรษาสมเด็จพระนางเจ้าสิริกิติ์ พระบรมราชินีนาถ พระบรมราชชนนีพันปีหลวง",
             '10-13': "วันคล้ายวันสวรรคต ร.9", '10-23': "วันปิยมหาราช",
             '12-5': "วันคล้ายวันพระบรมราชชพ ร.9", '12-10': "วันรัฐธรรมนูญ", '12-31': "วันสิ้นปี",
             // 2025 variable holidays
